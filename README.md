@@ -1,5 +1,7 @@
 # 🎯 TFT Team Composer
 
+<img src="https://github.com/DxnTFT/set16-tft-team-composer/blob/master/docs/%7BBBFE2F5D-2D57-4FE0-9FD4-5E5AE3779FEE%7D-1.png?raw=true" width=50% height=50%> <img src="https://github.com/DxnTFT/set16-tft-team-composer/blob/master/docs/%7BA926A940-5076-4A48-8DEB-7123540A1711%7D.png?raw=true" width=50% height=50%>
+
 An automated team composition generator for Teamfight Tactics that uses Google Apps Script to create optimal teams based on player ratings and in-game probabilities.
 
 ## 🚀 Features
