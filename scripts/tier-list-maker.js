@@ -37,8 +37,8 @@ function generateTierList() {
   // Organize champions by tier and cost
   const organized = organizeChampionsByTierAndCost(champions);
   
-  // Generate the tier list
-  outputTierList(organized, tierListSheet);
+  // Generate the tier list with costs in columns
+  outputTierListColumns(organized, tierListSheet);
   
   SpreadsheetApp.getUi().alert('Tier List generated! Check the TierList sheet.');
 }
@@ -47,13 +47,11 @@ function processChampionData(rawData) {
   const tierMap = { 'S': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1 };
   
   return rawData.map(row => {
-    const traits = [row[2], row[3], row[4]].filter(trait => trait !== '');
     const tierValue = tierMap[row[5]] || 0;
     
     return {
       name: row[0],
       cost: parseInt(row[1]) || 1,
-      traits: traits,
       tier: row[5] || '',
       tierValue: tierValue
     };
@@ -78,9 +76,7 @@ function organizeChampionsByTierAndCost(champions) {
   return organized;
 }
 
-function outputTierList(organized, sheet) {
-  let row = 1;
-  
+function outputTierListColumns(organized, sheet) {
   const tiers = [
     {name: 'S Tier', color: '#ff6b6b'},    // Red
     {name: 'A Tier', color: '#ffa726'},    // Orange  
@@ -88,6 +84,9 @@ function outputTierList(organized, sheet) {
     {name: 'C Tier', color: '#42a5f5'},    // Blue
     {name: 'D Tier', color: '#ba68c8'}     // Purple
   ];
+  
+  const costs = [1, 2, 3, 4, 5, 7];
+  let currentRow = 1;
   
   tiers.forEach(tierInfo => {
     const tier = tierInfo.name.charAt(0);
@@ -97,45 +96,66 @@ function outputTierList(organized, sheet) {
     const hasChampions = Object.values(tierData).some(champs => champs.length > 0);
     if (!hasChampions) return;
     
-    // Tier header
-    sheet.getRange(row, 1).setValue(tierInfo.name);
-    sheet.getRange(row, 1).setFontWeight('bold');
-    sheet.getRange(row, 1).setFontSize(14);
-    sheet.getRange(row, 1).setBackground(tierInfo.color);
-    row++;
+    // Tier Header - spans all columns
+    sheet.getRange(currentRow, 1, 1, 6).merge();
+    sheet.getRange(currentRow, 1).setValue(tierInfo.name);
+    sheet.getRange(currentRow, 1).setFontWeight('bold');
+    sheet.getRange(currentRow, 1).setFontSize(14);
+    sheet.getRange(currentRow, 1).setBackground(tierInfo.color);
+    sheet.getRange(currentRow, 1).setHorizontalAlignment("center");
+    currentRow++;
     
-    // Cost subheaders and champions
-    const costs = [1, 2, 3, 4, 5, 7];
+    // Cost headers
+    const costHeaders = ['1 Cost', '2 Cost', '3 Cost', '4 Cost', '5 Cost', '7 Cost'];
+    sheet.getRange(currentRow, 1, 1, 6).setValues([costHeaders]);
+    sheet.getRange(currentRow, 1, 1, 6).setFontWeight('bold');
+    sheet.getRange(currentRow, 1, 1, 6).setBackground(tierInfo.color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
+    currentRow++;
     
+    // Find max champions per cost for this tier
+    let maxRows = 0;
     costs.forEach(cost => {
-      const costChamps = tierData[cost];
-      if (costChamps.length > 0) {
-        // Cost header
-        sheet.getRange(row, 1).setValue(`  ${cost} Cost:`);
-        sheet.getRange(row, 1).setFontWeight('bold');
-        sheet.getRange(row, 1).setBackground(tierInfo.color.replace(')', ', 0.3)').replace('rgb', 'rgba'));
-        row++;
-        
-        // Champions for this cost
-        costChamps.forEach(champ => {
-          const traits = champ.traits.join(', ');
-          sheet.getRange(row, 1).setValue(`    • ${champ.name}`);
-          sheet.getRange(row, 2).setValue(traits);
-          row++;
-        });
-        
-        row++; // Add spacing between cost groups
-      }
+      maxRows = Math.max(maxRows, tierData[cost].length);
     });
     
-    row++; // Add spacing between tiers
+    // Output champions in a grid
+    for (let row = 0; row < maxRows; row++) {
+      const rowData = [];
+      costs.forEach(cost => {
+        const champ = tierData[cost][row];
+        rowData.push(champ ? champ.name : '');
+      });
+      sheet.getRange(currentRow, 1, 1, 6).setValues([rowData]);
+      currentRow++;
+    }
+    
+    currentRow += 2; // Add more spacing between tiers
   });
   
-  // Auto-resize columns
-  sheet.autoResizeColumns(1, 2);
+  // Auto-resize all columns
+  sheet.autoResizeColumns(1, 6);
   
-  // Add instructions
-  sheet.getRange(row, 1).setValue('Note: Update ratings in ChampionData sheet and regenerate this list.');
-  sheet.getRange(row, 1).setFontStyle('italic');
-  sheet.getRange(row, 1, 1, 2).merge();
+  // Center align all cells
+  const lastRow = sheet.getLastRow();
+  sheet.getRange(1, 1, lastRow, 6).setHorizontalAlignment("center");
+  sheet.getRange(1, 1, lastRow, 6).setVerticalAlignment("middle");
+  
+  // Add borders around each tier section
+  let rowPointer = 1;
+  tiers.forEach(tierInfo => {
+    const tier = tierInfo.name.charAt(0);
+    const tierData = organized[tier];
+    
+    if (Object.values(tierData).some(champs => champs.length > 0)) {
+      const maxRows = Math.max(...costs.map(cost => tierData[cost].length));
+      const sectionHeight = 2 + maxRows; // Header + cost headers + champions
+      
+      if (sectionHeight > 2) { // Only add borders if there are champions
+        sheet.getRange(rowPointer, 1, sectionHeight, 6)
+          .setBorder(true, true, true, true, true, true);
+      }
+      
+      rowPointer += sectionHeight + 2; // Move to next tier section
+    }
+  });
 }
