@@ -4,7 +4,7 @@ An automated team composition generator for Teamfight Tactics that uses Google A
 
 ## 🚀 Features
 
-- **Smart Team Generation**: Creates optimal 5-unit teams based on TFT shop probabilities
+- **Smart Team Generation**: Creates optimal 5-unit teams based on TFT shop probabilities [This feature is not working atm!]
 - **Tier List Organizer**: Automatically categorizes champions by tier and cost
 - **Probability-Based**: Uses actual TFT shop odds for each level (2-10)
 - **Real-time Updates**: Auto-calculates compositions when ratings change
