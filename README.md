@@ -39,7 +39,3 @@ An automated team composition generator for Teamfight Tactics that uses Google A
 1. Make a copy of [this Google Sheet template]()
 2. Run the setup script to import all champions
 3. Add your tier ratings and generate teams!
-
-## 📸 Demo
-
-![Team Composition Example](docs/demo-screenshot.png)
