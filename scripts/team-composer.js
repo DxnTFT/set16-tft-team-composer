@@ -1,13 +1,12 @@
-// Menu setup
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('TFT Composer')
     .addItem('Generate Compositions', 'generateCompositions')
     .addItem('Import Champions', 'importAllChampions')
+    .addItem('Debug Data', 'debugChampionData')
     .addToUi();
 }
 
-// Auto-update Tier_Value when you type in Tier column
 function onEdit(e) {
   const sheet = e.source.getActiveSheet();
   const range = e.range;
@@ -21,7 +20,6 @@ function onEdit(e) {
   }
 }
 
-// Import all champions with level input at the top
 function importAllChampions() {
   const championData = [
     {"name": "Anivia", "cost": "1", "traits": ["Freljord", "Invoker"]},
@@ -173,52 +171,108 @@ function importAllChampions() {
   SpreadsheetApp.getUi().alert(`Imported ${championData.length} champions! Set your level in cell B1 and add Tier ratings.`);
 }
 
-// Main composition generator
+function debugChampionData() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet();
+  const championSheet = sheet.getSheetByName('ChampionData');
+  
+  if (!championSheet) {
+    SpreadsheetApp.getUi().alert('ChampionData sheet not found!');
+    return;
+  }
+  
+  // Check what's actually in the sheet
+  const allData = championSheet.getRange('A4:G200').getValues();
+  Logger.log('All data length: ' + allData.length);
+  
+  // Filter out empty rows
+  const championData = allData.filter(row => row[0] !== '');
+  Logger.log('Filtered champion data length: ' + championData.length);
+  
+  // Log first few rows to see structure
+  championData.slice(0, 5).forEach((row, index) => {
+    Logger.log(`Row ${index}: ${row.join(' | ')}`);
+  });
+  
+  // Process the data
+  const champions = processChampionData(championData);
+  Logger.log('Processed champions: ' + champions.length);
+  
+  SpreadsheetApp.getUi().alert(`Found ${championData.length} champions, ${champions.length} with ratings`);
+}
+
 function generateCompositions() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet();
   const championSheet = sheet.getSheetByName('ChampionData');
   
+  if (!championSheet) {
+    SpreadsheetApp.getUi().alert('ChampionData sheet not found! Run Import Champions first.');
+    return;
+  }
+  
   // Get level from cell B1
   const playerLevel = championSheet.getRange('B1').getValue();
-  const maxUnits = playerLevel; // Level 5 = 5 units, etc.
-  const minTraits = 2; // Fixed minimum traits
+  if (!playerLevel || playerLevel < 2 || playerLevel > 10) {
+    SpreadsheetApp.getUi().alert('Please set a valid level (2-10) in cell B1!');
+    return;
+  }
   
-  // Get champion data (starting from row 4)
-  const championRange = championSheet.getRange('A4:G200');
-  const championData = championRange.getValues().filter(row => row[0] !== '');
+  const maxUnits = playerLevel;
+  const minTraits = 2;
+  
+  // Get champion data with better error handling
+  const allData = championSheet.getRange('A4:G200').getValues();
+  const championData = allData.filter(row => row[0] !== '');
+  
+  Logger.log(`Raw data: ${championData.length} rows`);
+  
+  if (championData.length === 0) {
+    SpreadsheetApp.getUi().alert('No champion data found! Run Import Champions first.');
+    return;
+  }
   
   // Process champion data
   const champions = processChampionData(championData);
+  Logger.log(`Processed ${champions.length} rated champions`);
   
   if (champions.length === 0) {
-    SpreadsheetApp.getUi().alert('No rated champions found! Please add Tier ratings (S/A/B/C/D) first.');
+    SpreadsheetApp.getUi().alert('No rated champions found! Please add Tier ratings (S/A/B/C/D) in the Tier column.');
     return;
   }
   
   // Generate compositions
   const compositions = findOptimalCompositions(champions, playerLevel, maxUnits, minTraits);
+  Logger.log(`Generated ${compositions.length} compositions`);
   
-  // Show results in a popup
+  // Show results
   showCompositionsPopup(compositions, playerLevel);
 }
 
 function processChampionData(rawData) {
   const tierMap = { 'S': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1 };
   
+  // Add null check
+  if (!rawData || !Array.isArray(rawData)) {
+    Logger.log('Raw data is invalid: ' + typeof rawData);
+    return [];
+  }
+  
   return rawData.map(row => {
-    // Extract traits from columns 2, 3, 4 (0-indexed)
-    const traits = [row[2], row[3], row[4]].filter(trait => trait !== '');
+    // Check if row has enough columns
+    if (!row || row.length < 7) {
+      return null;
+    }
     
-    const tierValue = tierMap[row[5]] || 0; // Column 5 is Tier
+    const traits = [row[2], row[3], row[4]].filter(trait => trait !== '');
+    const tierValue = tierMap[row[5]] || 0;
     
     return {
-      name: row[0],
+      name: row[0] || 'Unknown',
       cost: parseInt(row[1]) || 1,
       traits: traits,
       tier: row[5] || '',
       tierValue: tierValue
     };
-  }).filter(champ => champ.tierValue > 0);
+  }).filter(champ => champ !== null && champ.tierValue > 0);
 }
 
 function findOptimalCompositions(champions, playerLevel, maxUnits, minTraits) {
